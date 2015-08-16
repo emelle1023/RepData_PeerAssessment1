@@ -1,0 +1,143 @@
+---
+title: 'Reproducible Research: Peer Assessment 1'
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+```{r echo=FALSE}
+setwd("~/Documents/My Courses/Data Science/5. Reproducible Research/Exercises/Peer Assessment 1")
+```
+
+## Loading and preprocessing the data
+
+### 1. Load the data
+```{r}
+activity <- read.csv("activity.csv", header = TRUE)
+```
+
+### 2. Process the data into a format suitable for your analysis
+```{r, results='hide'}
+# activity <- activity[!is.na(activity$steps), ]
+```
+
+```{r}
+library(data.table)
+DT <- data.table(activity)
+```
+
+
+
+## What is mean total number of steps taken per day?
+
+### 1. Calculate the total number of steps taken per day
+```{r}
+DT[ , total := sum(steps), by = date]
+
+```
+
+### 2. Difference between histogram and barplot and make a histogram of the total number of steps taken each day
+
+* The bars in histograms are adjacent, that is, there's no space between them. 
+* With bar charts, each column represents a group defined by a categorical variable, that is, the variables can fit into categories.
+* With histograms, each column represents a group defined by a quantitative continous variable. In theory, the variables can take on any value in a certain range. 
+* A histogram follows a normal distribution. One implication of this distinction is that it is always appropriate to talk about the skewness of a histogram.
+* Bar charts variables are categorical and not quantitative. As a result, it is less appropriate to comment on the skewness of a bar chart.
+
+```{r histogram1, fig.height=5}
+hist(DT$total, breaks=22, col="green", xlab = "Total number of steps", 
+     main="Historgram of the total number of steps taken each day")
+```
+
+### 3. Calculate and report the mean and median of the total number of steps
+
+```{r}
+summary(DT$total)["Median"]
+summary(DT$total)["Mean"]
+
+```
+
+## What is the average daily activity pattern?
+### 1. Make a time series of the 5-minute interval and the average number of steps taken, averaged across all days.
+
+```{r}
+DT[, average := mean(steps, na.rm = TRUE), by = interval]
+```
+
+```{r}
+plot(x=DT$interval, y=DT$average, type="l", xlab= "5 minute interval", 
+     ylab="Average number of steps taken", main="Time series")
+```
+
+### 2. With 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r}
+DT[steps == max(DT$steps, na.rm = TRUE)]$interval
+
+DT[steps == summary(DT$steps)["Max."]]$interval
+```
+
+
+## Imputing missing values
+
+### 1. Calculate and report the total number of missing values in the dataset
+
+```{r}
+nrow(DT[is.na(DT$steps)])
+
+```
+
+### 2. Devise a strategy for filling in all of the missing values in the dataset. 
+
+The strategy is to use Median for the 5-minute interval to fill in all the missing values.
+
+### 3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r}
+setkey(DT, interval)
+DT[, newSteps := ifelse(is.na(steps), median(steps, na.rm=TRUE), steps), by=interval]
+```
+
+### 4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r}
+DT[, newTotal := sum(newSteps), by = date]
+hist(DT$newTotal, breaks=22, col="green", xlab = "Total number of steps", 
+     main="Historgram of the total number of steps taken each day")
+
+summary(DT$newTotal)["Mean"]
+summary(DT$newTotal)["Median"]
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+### 1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend"
+
+```{r}
+library(timeDate)
+
+DT[, day := lapply(isWeekend(as.Date(DT$date)), 
+    function(x) if(x) "weekday" else "weekend")]
+
+```
+
+
+### 2. Make a panel plot containing a time series plot of the 5-minute interval and average number of steps taken, averaged across all weekday days or weekend days.
+
+```{r}
+weekend <- subset(DT, day=="weekend")
+DT2 <- weekend[, averageWeekend := mean(newSteps), by = interval]
+
+weekday <- subset(DT, day=="weekday")
+DT3 <- weekday[, averageWeekday := mean(newSteps), by = interval]
+```
+
+```{r fig.width=10, fig.height=10}
+par(mfrow = c(2,1))
+plot(DT2$interval, DT2$averageWeekend, type="l", xlab="5 minute interval", 
+     ylab="Avg steps", main="Histogram average weekend")
+plot(DT3$interval, DT3$averageWeekday, type="l", xlab="5 minute interval", 
+     ylab="Avg steps", main="Histogram average weekday")
+
+```
